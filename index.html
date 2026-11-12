@@ -1,107 +1,32 @@
-<!-- language: HTML, file: index.html, target: браузер с WebAssembly -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>Half-Life — Browser Port</title>
+<title>Half-Life Browser</title>
 <style>
-  body{margin:0;background:#000;overflow:hidden;font-family:monospace;color:#fff}
+  body{margin:0;background:#000;overflow:hidden;color:#fff;font-family:monospace}
   #game{width:100vw;height:100vh;display:block}
-  #ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;
-      align-items:center;background:rgba(0,0,0,0.9);z-index:10;text-align:center}
-  h1{color:#ffcc00;font-size:42px;margin-bottom:10px;text-shadow:3px 3px 0 #000}
-  p{color:#aaa;font-size:16px;margin-bottom:20px;max-width:500px;line-height:1.5}
-  button{background:#4caf50;color:#fff;border:none;padding:15px 40px;
-         font-size:20px;font-family:monospace;font-weight:bold;cursor:pointer;
-         box-shadow:0 4px 0 #2e7d32;transition:transform 0.1s}
-  button:active{transform:translateY(4px);box-shadow:none}
-  #status{color:#ff9800;margin-top:20px;font-size:14px}
+  #ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;align-items:center;background:rgba(0,0,0,0.9);z-index:10;text-align:center}
+  h1{color:#ffcc00;font-size:42px}
+  p{color:#aaa;margin-bottom:20px}
+  button{background:#4caf50;color:#fff;border:none;padding:15px 40px;font-size:20px;cursor:pointer}
 </style>
 </head>
 <body>
 
 <canvas id="game"></canvas>
-
 <div id="ui">
   <h1>HALF-LIFE</h1>
-  <p>Полноценный порт движка GoldSrc на WebAssembly.<br>
-     Нажми «Играть», чтобы загрузить игру и высадиться в Черную Мезу.</p>
+  <p>Запуск через WebXash...</p>
   <button id="startBtn">Играть</button>
-  <div id="status"></div>
 </div>
 
 <script type="module">
-const canvas = document.getElementById('game');
-const ui = document.getElementById('ui');
-const status = document.getElementById('status');
-const startBtn = document.getElementById('startBtn');
-
-startBtn.addEventListener('click', async () => {
-  startBtn.disabled = true;
-  status.textContent = 'Загрузка файлов движка (около 40 МБ)...';
-  
-  try {
-    // 1. Загружаем ядро Xash3D (WASM) и базовые файлы игры с открытого CDN
-    // В этом репозитории уже собраны нужные WASM-бинарники и клиентские библиотеки
-    const baseUrl = 'https://raw.githubusercontent.com/yohimik/webxash3d-fwgs/main/build/';
-    
-    // Скачиваем JS-обертку движка
-    status.textContent = 'Инициализация движка...';
-    const script = document.createElement('script');
-    script.src = baseUrl + 'xash.js';
-    document.head.appendChild(script);
-
-    script.onload = async () => {
-      status.textContent = 'Запуск Half-Life...';
-      
-      // Конфигурация для Emscripten-модуля
-      const Module = {
-        canvas: canvas,
-        arguments: [
-          '-game', 'valve',
-          '+map', 'c0a0', // Стартовая карта Half-Life (в поезде)
-          '-windowed'
-        ],
-        // Говорим движку, где брать WASM файлы
-        locateFile: (path) => {
-          if (path.endsWith('.wasm')) return baseUrl + path;
-          if (path.endsWith('.data')) return baseUrl + path;
-          return path;
-        },
-        onRuntimeInitialized: () => {
-          ui.style.display = 'none';
-          canvas.focus();
-        },
-        print: (text) => console.log(text),
-        printErr: (text) => console.error(text)
-      };
-
-      // Запускаем движок
-      window.Module = Module;
-    };
-    
-    script.onerror = () => {
-      status.textContent = 'Ошибка загрузки. Проверь интернет.';
-      startBtn.disabled = false;
-    };
-
-  } catch (err) {
-    status.textContent = 'Ошибка: ' + err.message;
-    startBtn.disabled = false;
-  }
-});
-
-// Захват мыши для игры
-canvas.addEventListener('click', () => {
-  canvas.requestPointerLock();
-});
-
-// Блокируем стандартные действия браузера на клавиши
-window.addEventListener('keydown', (e) => {
-  if (['F5', 'F12', 'Tab'].includes(e.key) || (e.ctrlKey && e.key === 'r')) {
-    e.preventDefault();
-  }
-});
+  // 1. Перенаправляем на готовый рабочий фронтенд WebXash
+  // Он уже содержит все WASM-модули и запускает демо-версию Half-Life (Uplink)
+  document.getElementById('startBtn').onclick = () => {
+    window.location.href = 'https://x8bitrain.github.io/webXash/';
+  };
 </script>
 </body>
 </html>
