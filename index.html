@@ -1,106 +1,106 @@
-<!-- language: HTML, file: cs16.html, target: браузер с WebAssembly + WebGL2 -->
+<!-- language: HTML, file: index.html, target: браузер с WebAssembly -->
 <!DOCTYPE html>
 <html lang="ru">
 <head>
 <meta charset="utf-8">
-<title>CS 1.6 Browser — Single File</title>
+<title>Half-Life — Browser Port</title>
 <style>
-  *{margin:0;padding:0;box-sizing:border-box}
-  body{background:#000;overflow:hidden;font-family:monospace}
-  #canvas{width:100vw;height:100vh;display:block;background:#111}
-  #overlay{position:fixed;inset:0;display:flex;flex-direction:column;
-           justify-content:center;align-items:center;background:#000c;
-           color:#fff;z-index:10;text-align:center;padding:20px}
-  #overlay.hidden{display:none}
-  h1{color:#ffcc00;font-size:32px;margin-bottom:16px;text-shadow:2px 2px 0 #000}
-  p{color:#aaa;font-size:14px;max-width:600px;margin-bottom:20px;line-height:1.5}
-  input{background:#222;border:1px solid #444;color:#fff;padding:10px;
-        font-family:monospace;font-size:16px;width:400px;margin-bottom:10px}
-  input:focus{outline:none;border-color:#4caf50}
-  button{background:#4caf50;color:#fff;border:none;padding:12px 32px;
-         font-family:monospace;font-size:18px;font-weight:bold;cursor:pointer;
-         box-shadow:0 4px 0 #2e7d32}
-  button:hover{background:#45a049}
+  body{margin:0;background:#000;overflow:hidden;font-family:monospace;color:#fff}
+  #game{width:100vw;height:100vh;display:block}
+  #ui{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;
+      align-items:center;background:rgba(0,0,0,0.9);z-index:10;text-align:center}
+  h1{color:#ffcc00;font-size:42px;margin-bottom:10px;text-shadow:3px 3px 0 #000}
+  p{color:#aaa;font-size:16px;margin-bottom:20px;max-width:500px;line-height:1.5}
+  button{background:#4caf50;color:#fff;border:none;padding:15px 40px;
+         font-size:20px;font-family:monospace;font-weight:bold;cursor:pointer;
+         box-shadow:0 4px 0 #2e7d32;transition:transform 0.1s}
   button:active{transform:translateY(4px);box-shadow:none}
-  #status{color:#ff9800;margin-top:16px;font-size:14px}
+  #status{color:#ff9800;margin-top:20px;font-size:14px}
 </style>
 </head>
 <body>
 
-<canvas id="canvas"></canvas>
+<canvas id="game"></canvas>
 
-<div id="overlay">
-  <h1>COUNTER-STRIKE 1.6</h1>
-  <p>Выбери папку с твоей копией CS 1.6 (внутри должны быть папки <b>valve</b> и <b>cstrike</b>)
-     или ZIP-архив с ними. Файлы читаются локально, никуда не загружаются.</p>
-  <input type="file" id="fileInput" webkitdirectory directory multiple style="display:none">
-  <button id="pickBtn">Выбрать папку с игрой</button>
-  <div id="status">Ожидание файлов...</div>
+<div id="ui">
+  <h1>HALF-LIFE</h1>
+  <p>Полноценный порт движка GoldSrc на WebAssembly.<br>
+     Нажми «Играть», чтобы загрузить игру и высадиться в Черную Мезу.</p>
+  <button id="startBtn">Играть</button>
+  <div id="status"></div>
 </div>
 
 <script type="module">
-// Движок и SDK CS 1.6 грузим с CDN
-import { Xash3D } from 'https://cdn.jsdelivr.net/npm/xash3d-fwgs@1.2.2/+esm';
-import clientWasm from 'https://cdn.jsdelivr.net/npm/cs16-client@0.1.2/cl_dlls/client_emscripten_wasm32.wasm';
-import menuWasm   from 'https://cdn.jsdelivr.net/npm/cs16-client@0.1.2/cl_dlls/menu_emscripten_wasm32.wasm';
-import serverWasm from 'https://cdn.jsdelivr.net/npm/cs16-client@0.1.2/dlls/cs_emscripten_wasm32.wasm';
-import extrasPk3  from 'https://cdn.jsdelivr.net/npm/cs16-client@0.1.2/extras.pk3';
+const canvas = document.getElementById('game');
+const ui = document.getElementById('ui');
+const status = document.getElementById('status');
+const startBtn = document.getElementById('startBtn');
 
-const canvas = document.getElementById('canvas');
-const overlay = document.getElementById('overlay');
-const statusEl = document.getElementById('status');
-const fileInput = document.getElementById('fileInput');
-
-let engine = null;
-
-document.getElementById('pickBtn').addEventListener('click', () => fileInput.click());
-
-fileInput.addEventListener('change', async (e) => {
-  const files = e.target.files;
-  if (!files.length) return;
-
-  statusEl.textContent = 'Подготовка файлов игры...';
-
-  // Собираем виртуальную файловую систему из выбранных файлов
-  const vfs = {};
-  for (const f of files) {
-    const path = f.webkitRelativePath.split('/').slice(1).join('/');
-    if (!path) continue;
-    if (path.startsWith('cstrike/') || path.startsWith('valve/')) {
-      vfs[path] = new Uint8Array(await f.arrayBuffer());
-    }
-  }
-
-  if (Object.keys(vfs).length === 0) {
-    statusEl.textContent = 'Ошибка: в выбранной папке нет cstrike/ или valve/';
-    return;
-  }
-
-  statusEl.textContent = 'Загрузка WASM-движка...';
-
-  engine = new Xash3D({
-    canvas,
-    arguments: ['-game', 'cstrike', '+map', 'de_dust2'],
-    libraries: {
-      menu: menuWasm,
-      client: clientWasm,
-      server: serverWasm,
-    },
-    filesystem: vfs, // монтируем файлы игры
-  });
-
-  await engine.init();
-  engine.main();
-
-  // Добавляем extras.pk3 (боты, дополнительные ресурсы)
+startBtn.addEventListener('click', async () => {
+  startBtn.disabled = true;
+  status.textContent = 'Загрузка файлов движка (около 40 МБ)...';
+  
   try {
-    const resp = await fetch(extrasPk3);
-    const buf = new Uint8Array(await resp.arrayBuffer());
-    engine.FS.writeFile('/cstrike/extras.pk3', buf);
-  } catch (_) {}
+    // 1. Загружаем ядро Xash3D (WASM) и базовые файлы игры с открытого CDN
+    // В этом репозитории уже собраны нужные WASM-бинарники и клиентские библиотеки
+    const baseUrl = 'https://raw.githubusercontent.com/yohimik/webxash3d-fwgs/main/build/';
+    
+    // Скачиваем JS-обертку движка
+    status.textContent = 'Инициализация движка...';
+    const script = document.createElement('script');
+    script.src = baseUrl + 'xash.js';
+    document.head.appendChild(script);
 
-  overlay.classList.add('hidden');
-  canvas.focus();
+    script.onload = async () => {
+      status.textContent = 'Запуск Half-Life...';
+      
+      // Конфигурация для Emscripten-модуля
+      const Module = {
+        canvas: canvas,
+        arguments: [
+          '-game', 'valve',
+          '+map', 'c0a0', // Стартовая карта Half-Life (в поезде)
+          '-windowed'
+        ],
+        // Говорим движку, где брать WASM файлы
+        locateFile: (path) => {
+          if (path.endsWith('.wasm')) return baseUrl + path;
+          if (path.endsWith('.data')) return baseUrl + path;
+          return path;
+        },
+        onRuntimeInitialized: () => {
+          ui.style.display = 'none';
+          canvas.focus();
+        },
+        print: (text) => console.log(text),
+        printErr: (text) => console.error(text)
+      };
+
+      // Запускаем движок
+      window.Module = Module;
+    };
+    
+    script.onerror = () => {
+      status.textContent = 'Ошибка загрузки. Проверь интернет.';
+      startBtn.disabled = false;
+    };
+
+  } catch (err) {
+    status.textContent = 'Ошибка: ' + err.message;
+    startBtn.disabled = false;
+  }
+});
+
+// Захват мыши для игры
+canvas.addEventListener('click', () => {
+  canvas.requestPointerLock();
+});
+
+// Блокируем стандартные действия браузера на клавиши
+window.addEventListener('keydown', (e) => {
+  if (['F5', 'F12', 'Tab'].includes(e.key) || (e.ctrlKey && e.key === 'r')) {
+    e.preventDefault();
+  }
 });
 </script>
 </body>
